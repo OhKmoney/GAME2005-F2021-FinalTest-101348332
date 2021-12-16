@@ -94,4 +94,13 @@ public class CubeBehaviour : MonoBehaviour
         }
     }
 
+    public Vector3 GetSize()
+    {
+        return transform.lossyScale;
+    }
+    public Vector3 GetHalfSize()
+    {
+        return transform.lossyScale * 0.5f;
+    }
+
 }

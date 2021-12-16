@@ -37,6 +37,7 @@ public class CollisionManager : MonoBehaviour
                 if (i != j)
                 {
                     CheckAABBs(cubes[i], cubes[j]);
+                    AABBAABBCollision(cubes[i], cubes[j]);
                 }
             }
         }
@@ -199,5 +200,180 @@ public class CollisionManager : MonoBehaviour
                 }
             }
         }
+    }
+
+    static void AABBAABBCollision(CubeBehaviour objectA, CubeBehaviour objectB)
+    {
+        //Setup for all values necessary for collision
+        Vector3 halfSizeA = objectA.GetHalfSize();
+        Vector3 halfSizeB = objectB.GetHalfSize();
+
+        Vector3 distanceAB = objectB.transform.position - objectA.transform.position;
+
+        float distanceX = Mathf.Abs(distanceAB.x);
+        float distanceY = Mathf.Abs(distanceAB.y);
+        float distanceZ = Mathf.Abs(distanceAB.z);
+
+
+        float penetrationX = halfSizeA.x + halfSizeB.x - distanceX;
+        float penetrationY = halfSizeA.y + halfSizeB.y - distanceY;
+        float penetrationZ = halfSizeA.z + halfSizeB.z - distanceZ;
+
+        //Check for collision here
+        if (penetrationX < 0 || penetrationY < 0 || penetrationZ < 0)
+        {
+            return;
+        }
+
+        // Find minimumTraslationVector (i.e. what is the shortest path we can take)
+        // Along which axis are they closest to being seperate
+        // Move along that axis according to how much overlap there is
+
+        Vector3 contact;
+        Vector3 collisionNormalAtoB;
+        Vector3 minimumTranslationVector;
+
+        if (penetrationX < penetrationY && penetrationX < penetrationZ) // is penX the shortest?
+        {
+            collisionNormalAtoB = new Vector3(Mathf.Sign(distanceAB.x), 0, 0);    // Sign returns -1 or 1 based on sign
+            minimumTranslationVector = collisionNormalAtoB * penetrationX;
+        }
+        else if (penetrationY < penetrationX && penetrationY < penetrationZ) // is penY the shortest?
+        {
+            collisionNormalAtoB = new Vector3(0, Mathf.Sign(distanceAB.y), 0);    // Sign returns -1 or 1 based on sign
+            minimumTranslationVector = collisionNormalAtoB * penetrationY;
+        }
+        else //if (penetrationZ < penetrationY && penetrationZ < penetrationX) // is penZ the shortest?   // could just be else
+        {
+            collisionNormalAtoB = new Vector3(0, 0, Mathf.Sign(distanceAB.z));    // Sign returns -1 or 1 based on sign
+            minimumTranslationVector = collisionNormalAtoB * penetrationZ;
+        }
+
+        contact = objectA.transform.position + minimumTranslationVector;
+
+        ApplyMinimumTraslationVector(objectA.gameObject.GetComponent<RigidBody3D>(), objectB.gameObject.GetComponent<RigidBody3D>(), minimumTranslationVector, collisionNormalAtoB, contact);
+
+    }
+
+    static void ApplyMinimumTraslationVector(RigidBody3D a, RigidBody3D b, Vector3 minimumTranslationVectorAtoB, Vector3 collisionNormalAtoB, Vector3 contact)
+    {
+        //calculate the proper scaler if object is locked or not
+        ComputeMovementScalars(a, b, out float moveScalarA, out float moveScalarB);
+
+        // calculate Translations
+        Vector3 TranslationVectorA = -minimumTranslationVectorAtoB * moveScalarA;
+        Vector3 TranslationVectorB = minimumTranslationVectorAtoB * moveScalarB;
+
+        // Update Positions based on Translations
+        a.transform.Translate(TranslationVectorA);
+        b.transform.Translate(TranslationVectorB);
+
+        Vector3 contactPoint = contact;
+
+        ApplyVelocityResponse(a, b, collisionNormalAtoB);
+
+    }
+
+    static void ComputeMovementScalars(RigidBody3D a, RigidBody3D b, out float mtvScalarA, out float mtvScalarB)
+    {
+        // Check to see if either object is Locked
+        if (a.bodyType == BodyType.STATIC && b.bodyType == BodyType.DYNAMIC)
+        {
+            //if A is locked and B is not
+            //mtvScalarA = 0.0f;
+            //mtvScalarB = 1.0f;
+            //return;
+        }
+        if (a.bodyType == BodyType.DYNAMIC && b.bodyType == BodyType.STATIC)
+        {
+            //if B is locked and A is not
+            //mtvScalarA = 1.0f;
+            //mtvScalarB = 0.0f;
+            //return;
+        }
+        if (a.bodyType == BodyType.DYNAMIC && b.bodyType == BodyType.DYNAMIC)
+        {
+            //if both objects are not locked
+            mtvScalarA = 0.5f;
+            mtvScalarB = 0.5f;
+            return;
+        }
+        //else is A and B is locked
+        mtvScalarA = 0.0f;
+        mtvScalarB = 0.0f;
+    }
+
+    static void ApplyVelocityResponse(RigidBody3D objA, RigidBody3D objB, Vector3 collisionNormal)
+    {
+        Vector3 normal = collisionNormal;
+
+        // Velocity of B relative to A
+        Vector3 relativeVelocityAB = objB.velocity - objA.velocity;
+
+        // Find relative velocity
+        float relativeNormalVelocityAB = Vector3.Dot(relativeVelocityAB, normal);
+
+        // Early exit if they are not going towards each other (no bounce)
+        if (relativeNormalVelocityAB >= 0.0f)
+        {
+            return;
+        }
+
+        // Choose a coefficient of restitution
+        float restitution = (0.0f + 0.0f) * 0.5f;
+
+        float deltaV;
+
+        float minimumRelativeVelocityForBounce = 3.0f;
+
+        // If we only need the objects to slide and not bounce, then...
+        if (relativeNormalVelocityAB < -minimumRelativeVelocityForBounce)
+        {
+            // Determine change in velocity 
+            deltaV = (relativeNormalVelocityAB * (1.0f + restitution));
+        }
+        else
+        {
+            // no bounce
+            deltaV = (relativeNormalVelocityAB);
+        }
+
+        float impulse;
+        // respond differently based on locked states
+        if (objA.bodyType == BodyType.STATIC && objB.bodyType == BodyType.DYNAMIC)
+        {
+            // Only B
+            impulse = -deltaV * objB.mass;
+            objB.velocity += normal * (impulse / (objB.mass));
+        }
+        else if (objA.bodyType == BodyType.DYNAMIC && objB.bodyType == BodyType.STATIC)
+        {
+            // impulse required to creat our desired change in velocity
+            // impulse = Force * time = kg * m/s^2 * s = kg m/s
+            // impulse / objA.mass == deltaV
+            // Only A change velocity
+            impulse = -deltaV * objA.mass;
+            objA.velocity -= normal * (impulse / (objA.mass));
+        }
+        else if (objA.bodyType == BodyType.DYNAMIC && objB.bodyType == BodyType.DYNAMIC)
+        {
+            // Both
+            impulse = deltaV / ((1.0f / objA.mass) + (1.0f / objB.mass));
+            objA.velocity += normal * (impulse / objA.mass);
+            objB.velocity -= normal * (impulse / objB.mass);
+        }
+        else if (objA.bodyType == BodyType.STATIC && objB.bodyType == BodyType.STATIC)
+        {
+            // Nadda
+        }
+        else
+        {
+            return;
+        }
+
+        // subtract the component of relative velocity that is along the normal of the collision to receive the tangential velocity
+        Vector3 relativeSurfaceVelocity = relativeVelocityAB - (relativeNormalVelocityAB * normal);
+
+        //ApplyFriction(objA, objB, relativeSurfaceVelocity, normal);
     }
 }

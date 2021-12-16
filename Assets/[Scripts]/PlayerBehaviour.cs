@@ -8,6 +8,7 @@ public class PlayerBehaviour : MonoBehaviour
     public Transform bulletSpawn;
     public GameObject bullet;
     public int fireRate;
+    public bool isJumping;
 
 
     public BulletManager bulletManager;
@@ -35,8 +36,7 @@ public class PlayerBehaviour : MonoBehaviour
 
     private void _Move()
     {
-        if (isGrounded)
-        {
+        
             if (Input.GetAxisRaw("Horizontal") > 0.0f)
             {
                 // move right
@@ -63,15 +63,17 @@ public class PlayerBehaviour : MonoBehaviour
 
             body.velocity = Vector3.Lerp(body.velocity, Vector3.zero, 0.9f);
             body.velocity = new Vector3(body.velocity.x, 0.0f, body.velocity.z); // remove y
-            
 
+        if (isGrounded)
+        {
             if (Input.GetAxisRaw("Jump") > 0.0f)
             {
-                body.velocity = transform.up * speed * 0.1f * Time.deltaTime;
+                body.velocity = transform.up * 100.0f * Time.deltaTime;
             }
 
-            transform.position += body.velocity;
+            
         }
+        transform.position += body.velocity;
     }
 
 
