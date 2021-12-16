@@ -434,7 +434,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MaxBullets: 50
-  bullet: {fileID: 2898771445226466676, guid: dc05ecf40a596104686052b7abdee0d3, type: 3}
+  bullet: {fileID: 8748825881227322016, guid: 7ab927b636167414387ae596b7465011, type: 3}
 --- !u!4 &403008323
 Transform:
   m_ObjectHideFlags: 0
@@ -812,7 +812,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bulletSpawn: {fileID: 681930396}
-  bullet: {fileID: 2898771445226466676, guid: dc05ecf40a596104686052b7abdee0d3, type: 3}
+  bullet: {fileID: 8748825881227322016, guid: 7ab927b636167414387ae596b7465011, type: 3}
   fireRate: 100
   isJumping: 0
   bulletManager: {fileID: 403008322}
